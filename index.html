@@ -1,51 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Detective Meme — Bot Connection</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #080b12;
+      color: #eef2ff;
+      font-family: Arial, sans-serif;
+    }
+    main {
+      max-width: 650px;
+      margin: auto;
+    }
+    section {
+      background: #141a28;
+      border: 1px solid #30394e;
+      border-radius: 16px;
+      padding: 18px;
+      margin: 16px 0;
+    }
+    input, textarea, button {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 12px;
+      margin: 7px 0;
+      border-radius: 9px;
+      font-size: 16px;
+    }
+    input, textarea {
+      background: #080b12;
+      color: white;
+      border: 1px solid #46516a;
+    }
+    button {
+      background: #b6a0ff;
+      color: #111322;
+      border: 0;
+      font-weight: bold;
+    }
+    button:disabled {
+      opacity: .45;
+    }
+    #status {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    #messages {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      max-height: 350px;
+      overflow-y: auto;
+    }
+    .muted { color: #aab4ca; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>🕵️ Detective Meme</h1>
+  <p class="muted">Website ↔ Pythonista Firebase messaging</p>
+  <section>
+    <h2>Firebase Connection</h2>
+    <p id="status">Not connected. Sign in below.</p>
+    <form id="loginForm">
+      <label for="email">Firebase email</label>
+      <input id="email" type="email"
+             autocomplete="username" required>
+      <label for="password">Firebase password</label>
+      <input id="password" type="password"
+             autocomplete="current-password" required>
+      <button id="connectBtn" type="submit">
+        Connect to Firebase
+      </button>
+    </form>
+  </section>
+  <section>
+    <h2>Send a message to Pythonista</h2>
+    <textarea id="message"
+      placeholder="Type a message for the Pythonista bot"
+      rows="3"></textarea>
+    <button id="sendBtn" disabled>
+      Send Message
+    </button>
+    <button id="testBtn" disabled>
+      Send Connection Test
+    </button>
+  </section>
+  <section>
+    <h2>Messages from Both Bots</h2>
+    <div id="messages">No messages received yet.</div>
+  </section>
+</main>
 <script type="module">
 import {
   signInWebsite,
   sendBotMessage,
   listenForBotMessages
 } from "./firebase.js";
-
-const status = document.getElementById("scanStatus");
-
-async function connectDetectiveMemeBots() {
-  try {
-    const email = prompt("Enter your Firebase account email:");
-    if (!email) {
-      status.textContent = "Firebase connection cancelled.";
-      return;
-    }
-
-    const password = prompt("Enter your Firebase account password:");
-    if (!password) {
-      status.textContent = "Firebase connection cancelled.";
-      return;
-    }
-
-    status.textContent = "Connecting to Firebase...";
-
-    await signInWebsite(email.trim(), password);
-
-    listenForBotMessages((messages) => {
-      console.log("Messages from both bots:", messages);
-    });
-
-    await sendBotMessage(
-      "Website",
-      JSON.stringify({
-        type: "BOT_ONLINE",
-        message: "Website bot connected to Firebase",
-        timestamp: new Date().toISOString()
-      })
+const $ = id => document.getElementById(id);
+let connected = false;
+let stopListening = null;
+let seen = new Set();
+function status(message) {
+  $("status").textContent = message;
+}
+function showMessages(data) {
+  const entries = Object.entries(data || {})
+    .sort((a, b) =>
+      String(a[1]?.timestamp || "")
+        .localeCompare(String(b[1]?.timestamp || ""))
     );
-
-    status.textContent =
-      "Website authenticated. Waiting for Pythonista bot reply.";
-
-  } catch (error) {
-    console.error("Firebase connection failed:", error);
-    status.textContent = "Firebase error: " + error.message;
+  for (const [key, item] of entries) {
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const line = document.createElement("div");
+    line.textContent =
+      `[${item.timestamp || "time unknown"}] ` +
+      `${item.sender || "Unknown"}: ` +
+      `${item.message || ""}`;
+    $("messages").prepend(line);
+  }
+  if (!entries.length && !seen.size) {
+    $("messages").textContent = "No messages received yet.";
   }
 }
-
-connectDetectiveMemeBots();
+async function send(sender, message) {
+  if (!connected) {
+    status("Connect to Firebase first.");
+    return;
+  }
+  try {
+    await sendBotMessage(sender, message);
+    status("Message sent to Firebase successfully.");
+  } catch (error) {
+    status("SEND ERROR: " + error.message);
+  }
+}
+$("loginForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  $("connectBtn").disabled = true;
+  status("Connecting to Firebase...");
+  try {
+    await signInWebsite(
+      $("email").value.trim(),
+      $("password").value
+    );
+    connected = true;
+    $("password").value = "";
+    $("sendBtn").disabled = false;
+    $("testBtn").disabled = false;
+    status("Firebase authenticated. Starting message listener...");
+    if (stopListening) stopListening();
+    stopListening = listenForBotMessages(showMessages);
+    await sendBotMessage(
+      "Website",
+      "CONNECTION_TEST: Website bot online. Pythonista, please reply."
+    );
+    status(
+      "CONNECTED to Firebase. Connection test sent. " +
+      "Waiting for Pythonista to reply."
+    );
+  } catch (error) {
+    connected = false;
+    $("sendBtn").disabled = true;
+    $("testBtn").disabled = true;
+    status("CONNECTION ERROR: " + error.message);
+  } finally {
+    $("connectBtn").disabled = false;
+  }
+});
+$("sendBtn").addEventListener("click", async () => {
+  const message = $("message").value.trim();
+  if (!message) {
+    status("Type a message first.");
+    return;
+  }
+  await send("Website", message);
+  $("message").value = "";
+});
+$("testBtn").addEventListener("click", async () => {
+  await send(
+    "Website",
+    "CONNECTION_TEST: Pythonista, reply with CONNECTION_OK."
+  );
+});
 </script>
+</body>
+</html>
