@@ -7,6 +7,7 @@ import {
   getDatabase,
   ref,
   onValue
+  push,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
 
 const firebaseConfig = {
@@ -33,3 +34,24 @@ onAuthStateChanged(auth, user => {
 });
 
 export { app, auth, db, ref, onValue };
+// Shared message channel for the two bots
+const botMessagesRef = ref(db, "botMessages");
+
+function sendBotMessage(sender, message) {
+  return import("https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js")
+    .then(({ push }) =>
+      push(botMessagesRef, {
+        sender: String(sender),
+        message: String(message),
+        timestamp: new Date().toISOString()
+      })
+    );
+}
+
+function listenForBotMessages(callback) {
+  onValue(botMessagesRef, snapshot => {
+    callback(snapshot.val() || {});
+  });
+}
+
+export { sendBotMessage, listenForBotMessages };
