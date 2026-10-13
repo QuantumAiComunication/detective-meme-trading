@@ -1,30 +1,619 @@
-// 1. Send a message from the Website to Pythonista
-function sendToPythonista(messageText) {
-    const messageRef = database.ref('botMessages').push();
-    messageRef.set({
-        sender: "Website",
-        message: messageText,
-        timestamp: Date.now()
-    }).then(() => {
-        console.log("Message sent to Pythonista!");
-    }).catch((error) => {
-        console.error("Error sending message:", error);
-    });
-}
 
-// 2. Listen for replies from Pythonista in real time
-function listenForPythonistaReplies() {
-    const messagesRef = database.ref('botMessages').limitToLast(20);
-    messagesRef.on('child_added', (snapshot) => {
-        const data = snapshot.val();
-        if (data && data.sender === "Pythonista") {
-            // Display Pythonista's feedback on your website UI
-            displayMessageOnWebUI("Pythonista Bot", data.message);
-        }
-    });
-}
 
-// Call the listener when your web page loads
-window.onload = function() {
-    listenForPythonistaReplies();
-};
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <meta name="theme-color" content="#080b12">
+
+  <title>Detective Meme — Bot Communication</title>
+
+  <style>
+
+    :root {
+
+      color-scheme: dark;
+
+      --bg: #080b12;
+
+      --card: #141a28;
+
+      --line: #30394e;
+
+      --text: #eef2ff;
+
+      --muted: #aab4ca;
+
+      --purple: #b6a0ff;
+
+      --green: #68e0a0;
+
+      --red: #ff8585;
+
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+
+      margin: 0;
+
+      background: var(--bg);
+
+      color: var(--text);
+
+      font: 16px/1.5 -apple-system, BlinkMacSystemFont, sans-serif;
+
+    }
+
+    main {
+
+      max-width: 760px;
+
+      margin: auto;
+
+      padding: 22px 16px 48px;
+
+    }
+
+    h1 { color: var(--purple); }
+
+    h2 { margin-top: 0; }
+
+    .card {
+
+      background: var(--card);
+
+      border: 1px solid var(--line);
+
+      border-radius: 16px;
+
+      padding: 18px;
+
+      margin: 16px 0;
+
+    }
+
+    label {
+
+      display: block;
+
+      margin: 12px 0 5px;
+
+    }
+
+    input, textarea, button {
+
+      width: 100%;
+
+      font: inherit;
+
+      border-radius: 10px;
+
+      padding: 13px;
+
+    }
+
+    input, textarea {
+
+      background: #080b12;
+
+      color: var(--text);
+
+      border: 1px solid var(--line);
+
+    }
+
+    textarea {
+
+      min-height: 110px;
+
+      resize: vertical;
+
+    }
+
+    button {
+
+      background: var(--purple);
+
+      color: #111322;
+
+      border: 0;
+
+      font-weight: 700;
+
+      margin-top: 12px;
+
+      cursor: pointer;
+
+    }
+
+    button.secondary {
+
+      background: #222b3f;
+
+      color: var(--text);
+
+      border: 1px solid var(--line);
+
+    }
+
+    button:disabled {
+
+      opacity: 0.5;
+
+      cursor: not-allowed;
+
+    }
+
+    .status {
+
+      white-space: pre-wrap;
+
+      overflow-wrap: anywhere;
+
+      background: #080b12;
+
+      border: 1px solid var(--line);
+
+      border-radius: 10px;
+
+      padding: 12px;
+
+    }
+
+    .muted { color: var(--muted); }
+
+    .message {
+
+      border-bottom: 1px solid var(--line);
+
+      padding: 12px 0;
+
+      overflow-wrap: anywhere;
+
+    }
+
+    .sender { color: var(--green); font-weight: 700; }
+
+    .time { color: var(--muted); font-size: 12px; }
+
+    .hidden { display: none !important; }
+
+  </style>
+
+</head>
+
+<body>
+
+<main>
+
+  <header>
+
+    <h1>🕵️ Detective Meme</h1>
+
+    <p class="muted">Website ↔ Pythonista Firebase communication</p>
+
+  </header>
+
+  <section class="card">
+
+    <h2>Firebase Connection</h2>
+
+    <p id="connectionStatus" class="status">
+
+      NOT CONNECTED — Sign in to begin.
+
+    </p>
+
+    <form id="loginForm">
+
+      <label for="firebaseEmail">Firebase email</label>
+
+      <input
+
+        id="firebaseEmail"
+
+        type="email"
+
+        autocomplete="username"
+
+        required
+
+        placeholder="Enter Firebase email"
+
+      >
+
+      <label for="firebasePassword">Firebase password</label>
+
+      <input
+
+        id="firebasePassword"
+
+        type="password"
+
+        autocomplete="current-password"
+
+        required
+
+        placeholder="Enter Firebase password"
+
+      >
+
+      <button id="connectBtn" type="submit">
+
+        Connect to Firebase
+
+      </button>
+
+    </form>
+
+    <button id="signOutBtn" class="secondary hidden" type="button">
+
+      Sign Out
+
+    </button>
+
+    <p class="muted">
+
+      Never enter a crypto wallet recovery phrase or private key here.
+
+    </p>
+
+  </section>
+
+  <section class="card">
+
+    <h2>Send a Message to Pythonista</h2>
+
+    <label for="messageInput">Your message</label>
+
+    <textarea
+
+      id="messageInput"
+
+      maxlength="500"
+
+      placeholder="Type a message for the Pythonista bot..."
+
+    ></textarea>
+
+    <button id="sendBtn" type="button" disabled>
+
+      Send Message
+
+    </button>
+
+    <button id="testBtn" type="button" disabled>
+
+      Send Connection Test
+
+    </button>
+
+    <p id="sendStatus" class="status">
+
+      Connect to Firebase before sending messages.
+
+    </p>
+
+  </section>
+
+  <section class="card">
+
+    <h2>Messages from Both Bots</h2>
+
+    <p class="muted">
+
+      Shared Firebase path: <code>/botMessages</code>
+
+    </p>
+
+    <p id="messageCount" class="muted">0 messages</p>
+
+    <div id="messages" class="status">
+
+      No messages loaded yet.
+
+    </div>
+
+  </section>
+
+</main>
+
+<script type="module">
+
+  import {
+
+    signInWebsite,
+
+    sendBotMessage,
+
+    listenForBotMessages,
+
+    auth
+
+  } from "./firebase.js";
+
+  const $ = id => document.getElementById(id);
+
+  let connected = false;
+
+  let stopListening = null;
+
+  function setConnected(value) {
+
+    connected = value;
+
+    $("connectBtn").disabled = false;
+
+    $("sendBtn").disabled = !value;
+
+    $("testBtn").disabled = !value;
+
+    $("signOutBtn").classList.toggle("hidden", !value);
+
+  }
+
+  function showError(prefix, error) {
+
+    const code = error?.code ? error.code + ": " : "";
+
+    const message = error?.message || String(error);
+
+    $("connectionStatus").textContent =
+
+      prefix + code + message;
+
+    setConnected(false);
+
+  }
+
+  function displayMessages(data) {
+
+    const entries = Object.entries(data || {})
+
+      .sort((a, b) =>
+
+        String(a[1]?.timestamp || "")
+
+          .localeCompare(String(b[1]?.timestamp || ""))
+
+      )
+
+      .slice(-50);
+
+    $("messageCount").textContent =
+
+      entries.length + " recent messages";
+
+    const container = $("messages");
+
+    container.replaceChildren();
+
+    if (entries.length === 0) {
+
+      container.textContent = "No messages yet.";
+
+      return;
+
+    }
+
+    for (const [key, item] of entries) {
+
+      const block = document.createElement("div");
+
+      block.className = "message";
+
+      const sender = document.createElement("div");
+
+      sender.className = "sender";
+
+      sender.textContent = item?.sender || "Unknown sender";
+
+      const time = document.createElement("div");
+
+      time.className = "time";
+
+      const parsedTime = item?.timestamp
+
+        ? new Date(item.timestamp)
+
+        : null;
+
+      time.textContent =
+
+        parsedTime && !Number.isNaN(parsedTime.getTime())
+
+          ? parsedTime.toLocaleString()
+
+          : "Time unavailable";
+
+      const body = document.createElement("div");
+
+      body.textContent =
+
+        typeof item?.message === "string"
+
+          ? item.message
+
+          : JSON.stringify(item?.message ?? "");
+
+      block.append(sender, time, body);
+
+      container.append(block);
+
+    }
+
+  }
+
+  $("loginForm").addEventListener("submit", async event => {
+
+    event.preventDefault();
+
+    $("connectBtn").disabled = true;
+
+    $("connectionStatus").textContent =
+
+      "Connecting to Firebase...";
+
+    try {
+
+      await signInWebsite(
+
+        $("firebaseEmail").value.trim(),
+
+        $("firebasePassword").value
+
+      );
+
+      $("firebasePassword").value = "";
+
+      if (stopListening) stopListening();
+
+      stopListening = listenForBotMessages(displayMessages);
+
+      setConnected(true);
+
+      $("connectionStatus").textContent =
+
+        "CONNECTED — Firebase sign-in succeeded. Listening to /botMessages.";
+
+      $("sendStatus").textContent =
+
+        "Connected. Send a message or connection test.";
+
+    } catch (error) {
+
+      showError("Connection failed — ", error);
+
+    } finally {
+
+      $("connectBtn").disabled = false;
+
+    }
+
+  });
+
+  $("sendBtn").addEventListener("click", async () => {
+
+    if (!connected) return;
+
+    const message = $("messageInput").value.trim();
+
+    if (!message) {
+
+      $("sendStatus").textContent = "Type a message first.";
+
+      return;
+
+    }
+
+    $("sendBtn").disabled = true;
+
+    try {
+
+      await sendBotMessage("Website", message);
+
+      $("messageInput").value = "";
+
+      $("sendStatus").textContent =
+
+        "MESSAGE SENT — written to Firebase /botMessages.";
+
+    } catch (error) {
+
+      $("sendStatus").textContent =
+
+        "Send failed — " + (error?.code || "") + " " +
+
+        (error?.message || String(error));
+
+    } finally {
+
+      $("sendBtn").disabled = !connected;
+
+    }
+
+  });
+
+  $("testBtn").addEventListener("click", async () => {
+
+    if (!connected) return;
+
+    $("testBtn").disabled = true;
+
+    try {
+
+      await sendBotMessage(
+
+        "Website",
+
+        "CONNECTION_TEST: Pythonista, please reply with CONNECTION_OK."
+
+      );
+
+      $("sendStatus").textContent =
+
+        "TEST SENT — now check whether Pythonista replies.";
+
+    } catch (error) {
+
+      $("sendStatus").textContent =
+
+        "Test failed — " + (error?.code || "") + " " +
+
+        (error?.message || String(error));
+
+    } finally {
+
+      $("testBtn").disabled = !connected;
+
+    }
+
+  });
+
+  $("signOutBtn").addEventListener("click", async () => {
+
+    try {
+
+      if (stopListening) stopListening();
+
+      stopListening = null;
+
+      const { signOut } = await import(
+
+        "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js"
+
+      );
+
+      await signOut(auth);
+
+      setConnected(false);
+
+      $("connectionStatus").textContent =
+
+        "SIGNED OUT — reconnect to send messages.";
+
+      $("sendStatus").textContent =
+
+        "Connect to Firebase before sending messages.";
+
+    } catch (error) {
+
+      showError("Sign-out failed — ", error);
+
+    }
+
+  });
+
+</script>
+
+</body>
+
+</html>
