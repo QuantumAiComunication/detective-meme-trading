@@ -1,13 +1,15 @@
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import {
   getAuth,
-  onAuthStateChanged
+  onAuthStateChanged,
+  signInWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
   getDatabase,
   ref,
-  onValue
-  push,
+  onValue,
+  push
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
 
 const firebaseConfig = {
@@ -25,30 +27,29 @@ const auth = getAuth(app);
 const db = getDatabase(app);
 
 onAuthStateChanged(auth, user => {
-  if (user) {
-    console.log("Detective Meme: authenticated");
-    console.log("Firebase connection initialized.");
-  } else {
-    console.log("Detective Meme: sign-in required.");
-  }
+  console.log(user ? "Detective Meme: authenticated" : "Detective Meme: sign-in required");
 });
 
 export { app, auth, db, ref, onValue };
-// Shared message channel for the two bots
+
 const botMessagesRef = ref(db, "botMessages");
+
+function signInWebsite(email, password) {
+  return signInWithEmailAndPassword(auth, email, password);
+}
 
 function sendBotMessage(sender, message) {
   return push(botMessagesRef, {
-  sender: String(sender),
-  message: String(message),
-  timestamp: new Date().toISOString()
-});
+    sender: String(sender),
+    message: String(message),
+    timestamp: new Date().toISOString()
+  });
 }
 
 function listenForBotMessages(callback) {
-  onValue(botMessagesRef, snapshot => {
+  return onValue(botMessagesRef, snapshot => {
     callback(snapshot.val() || {});
   });
 }
 
-export { sendBotMessage, listenForBotMessages };
+export { signInWebsite, sendBotMessage, listenForBotMessages };
