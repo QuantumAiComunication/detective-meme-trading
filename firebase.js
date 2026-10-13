@@ -1,55 +1,30 @@
+// 1. Send a message from the Website to Pythonista
+function sendToPythonista(messageText) {
+    const messageRef = database.ref('botMessages').push();
+    messageRef.set({
+        sender: "Website",
+        message: messageText,
+        timestamp: Date.now()
+    }).then(() => {
+        console.log("Message sent to Pythonista!");
+    }).catch((error) => {
+        console.error("Error sending message:", error);
+    });
+}
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import {
-  getAuth,
-  onAuthStateChanged,
-  signInWithEmailAndPassword
-} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import {
-  getDatabase,
-  ref,
-  onValue,
-  push
-} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
+// 2. Listen for replies from Pythonista in real time
+function listenForPythonistaReplies() {
+    const messagesRef = database.ref('botMessages').limitToLast(20);
+    messagesRef.on('child_added', (snapshot) => {
+        const data = snapshot.val();
+        if (data && data.sender === "Pythonista") {
+            // Display Pythonista's feedback on your website UI
+            displayMessageOnWebUI("Pythonista Bot", data.message);
+        }
+    });
+}
 
-const firebaseConfig = {
-  apiKey: "AIzaSyASuwSOx1iNCl9GUZE4GOiDtg_0ugIaYxw",
-  authDomain: "detectivememebots.firebaseapp.com",
-  databaseURL: "https://detectivememebots-default-rtdb.firebaseio.com",
-  projectId: "detectivememebots",
-  storageBucket: "detectivememebots.firebasestorage.app",
-  messagingSenderId: "38367696556",
-  appId: "1:38367696556:web:717a2cfca4f8d417597109"
+// Call the listener when your web page loads
+window.onload = function() {
+    listenForPythonistaReplies();
 };
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getDatabase(app);
-
-onAuthStateChanged(auth, user => {
-  console.log(user ? "Detective Meme: authenticated" : "Detective Meme: sign-in required");
-});
-
-export { app, auth, db, ref, onValue };
-
-const botMessagesRef = ref(db, "botMessages");
-
-function signInWebsite(email, password) {
-  return signInWithEmailAndPassword(auth, email, password);
-}
-
-function sendBotMessage(sender, message) {
-  return push(botMessagesRef, {
-    sender: String(sender),
-    message: String(message),
-    timestamp: new Date().toISOString()
-  });
-}
-
-function listenForBotMessages(callback) {
-  return onValue(botMessagesRef, snapshot => {
-    callback(snapshot.val() || {});
-  });
-}
-
-export { signInWebsite, sendBotMessage, listenForBotMessages };
