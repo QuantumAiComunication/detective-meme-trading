@@ -27,5 +27,18 @@ function paperSell(pos,price,why){let pl=pos.qty*price-pos.sol;cash+=pos.qty*pri
 function paperRules(){for(let pos of [...positions]){let x=rows.find(r=>r.p.baseToken.address===pos.mint);if(!x?.m.ok)continue;pos.last=x.m.price;let ch=(pos.last/pos.entry-1)*100;if(ch<=-10)paperSell(pos,pos.last,'Simulated stop-loss');else if(ch>=15)paperSell(pos,pos.last,'Simulated take-profit');else if(x.m.change<0&&x.m.buys<x.m.sells)paperSell(pos,pos.last,'Simulated bearish signal')}for(let x of rows){if(positions.length>=MAX||cash<BUY)break;let m=x.m,p=x.p;if(m.ok&&m.liq>=10000&&m.vol>=2000&&m.buys>=m.sells&&m.change>0&&m.score>=65&&!positions.some(q=>q.mint===p.baseToken.address))paperBuy(x)}}
 function renderPaper(){$('cash').textContent=fmt(cash,4)+' SOL';$('openCount').textContent=positions.length;$('realized').textContent=(realized>=0?'+':'')+fmt(realized,5)+' SOL';let un=positions.reduce((s,p)=>s+p.qty*p.last-p.sol,0);$('unrealized').textContent=(un>=0?'+':'')+fmt(un,5)+' SOL';$('autoPaperBtn').textContent=autoPaper?'Disable auto paper-trading':'Enable auto paper-trading';$('positions').innerHTML=positions.length?positions.map(p=>`<div class="token"><div class="spread"><b>${esc(p.name)} (${esc(p.symbol)})</b><span class="${p.last>=p.entry?'good':'bad'}">${pct((p.last/p.entry-1)*100)}</span></div><p class="muted">Entry ${usd(p.entry)} Â· Latest ${usd(p.last)} Â· P/L ${fmt(p.qty*p.last-p.sol,5)} SOL</p><button class="secondary" data-sell="${esc(p.mint)}">Paper sell</button></div>`).join(''):'<p class="muted">No open positions.</p>';document.querySelectorAll('[data-sell]').forEach(b=>b.onclick=()=>{let p=positions.find(x=>x.mint===b.dataset.sell);if(p)paperSell(p,p.last,'Manual paper sell')});$('history').innerHTML=history.length?`<table><thead><tr><th>Time</th><th>Token</th><th>Action</th><th>Amount</th><th>P/L</th><th>Note</th></tr></thead><tbody>${history.slice(0,40).map(h=>`<tr><td>${esc(h.time)}</td><td>${esc(h.symbol)}</td><td>${esc(h.action)}</td><td>${fmt(h.sol,4)} SOL</td><td>${h.pl===null?'â':fmt(h.pl,5)}</td><td>${esc(h.note)}</td></tr>`).join('')}</tbody></table>`:'<p class="muted">No paper trades yet.</p>'}
 $('scanBtn').onclick=()=>scan();$('lookupBtn').onclick=()=>{let m=$('mintInput').value.trim();if(!validMint(m)){$('scanStatus').textContent='Enter a base58 Solana mint address (32â44 characters).';return}scan(m)};$('autoPaperBtn').onclick=()=>{autoPaper=!autoPaper;$('paperStatus').textContent=autoPaper?'Auto paper-trading ON. Only qualifying scans can create simulated trades.':'Auto paper-trading OFF.';renderPaper();if(autoPaper&&rows.length)paperRules()};$('resetPaperBtn').onclick=()=>{if(!confirm('Reset virtual account only? This does not affect any wallet.'))return;cash=START;realized=0;positions=[];history=[];autoPaper=false;$('paperStatus').textContent='Virtual account reset. Auto paper-trading OFF.';renderPaper();renderRows()};$('clearBtn').onclick=()=>{rows=[];renderRows();$('scanStatus').textContent='Results cleared. Paper account unchanged.'};$('stopBtn').onclick=()=>{if(timer)clearInterval(timer);timer=null;$('stopBtn').disabled=true;$('scanStatus').textContent='Auto-scan stopped.'};timer=setInterval(()=>{if(!document.hidden)scan()},60000);$('stopBtn').disabled=false;document.addEventListener('visibilitychange',()=>{if(!document.hidden&&timer&&!busy)scan()});renderPaper();
-})();
-</script><script type="module" src="./firebase.js"></script></body></html>
+})()
+  
+</script>
+<script type="module">
+import { sendBotMessage, listenForBotMessages } from "./firebase.js";
+
+listenForBotMessages((messages) => {
+  console.log("Detective Meme messages:", messages);
+});
+
+sendBotMessage("Website", "Website bot is online")
+  .then(() => console.log("Website message sent"))
+  .catch((error) => console.error("Firebase error:", error));
+</script>
+ </body></html>
