@@ -38,14 +38,11 @@ export { app, auth, db, ref, onValue };
 const botMessagesRef = ref(db, "botMessages");
 
 function sendBotMessage(sender, message) {
-  return import("https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js")
-    .then(({ push }) =>
-      push(botMessagesRef, {
-        sender: String(sender),
-        message: String(message),
-        timestamp: new Date().toISOString()
-      })
-    );
+  return push(botMessagesRef, {
+  sender: String(sender),
+  message: String(message),
+  timestamp: new Date().toISOString()
+});
 }
 
 function listenForBotMessages(callback) {
