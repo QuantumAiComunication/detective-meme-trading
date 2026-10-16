@@ -51,12 +51,22 @@ function sendBotMessage(sender, message) {
 
 // Listen for messages from both bots in real time
 function listenForBotMessages(callback) {
-  return onValue(
-    botMessagesRef,
-    snapshot => callback(snapshot.val() || {}),
-    error => console.error("Firebase message listener error:", error)
-  );
+    return onValue(
+        botMessagesRef,
+        snapshot => {
+            const data = snapshot.val() || {};
+            // Flatten or map the push keys into an array of clean message objects
+            const messages = Object.values(data).map(item => ({
+                sender: item.sender || 'BOT',
+                text: item.message || item.text || '',
+                timestamp: item.timestamp || ''
+            }));
+            callback(messages);
+        },
+        error => console.error("Firebase message listener error:", error)
+    );
 }
+
 
 export {
   app,
