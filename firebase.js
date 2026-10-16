@@ -14,7 +14,7 @@ import {
   push
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
 
-// Detective Meme Firebase project
+// Detective Meme Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyASuwSOx1iNCl9GUZE4GOiDtg_0ugIaYxw",
   authDomain: "detectivememebots.firebaseapp.com",
@@ -25,48 +25,115 @@ const firebaseConfig = {
   appId: "1:38367696556:web:717a2cfca4f8d417597109"
 };
 
-// Initialize Firebase once
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-// Both bots use this shared message path
+// Shared communication channel for both bots
 const botMessagesRef = ref(db, "botMessages");
 
-// Sign in using Firebase Authentication
+// Sign in using email and password
 function signInWebsite(email, password) {
-  return signInWithEmailAndPassword(auth, email, password);
+  if (!email || !password) {
+    return Promise.reject(
+      new Error("Enter your email and password.")
+    );
+  }
+
+  return signInWithEmailAndPassword(
+    auth,
+    email.trim(),
+    password
+  );
 }
 
-// Send a message from either bot
+// Sign out
+function signOutWebsite() {
+  return signOut(auth);
+}
+
+// Send a message to Firebase
 function sendBotMessage(sender, message) {
-  return push(botMessagesRef, {
-    sender: String(sender),
-    message: typeof message === "string"
+  const text =
+    typeof message === "string"
       ? message
-      : JSON.stringify(message),
+      : JSON.stringify(message ?? "");
+
+  if (!text.trim()) {
+    return Promise.reject(
+      new Error("Cannot send an empty message.")
+    );
+  }
+
+  return push(botMessagesRef, {
+    sender: String(sender || "BOT"),
+    message: text,
     timestamp: new Date().toISOString()
   });
 }
 
-// Listen for messages from both bots in real time
-function listenForBotMessages(callback) {
-    return onValue(
-        botMessagesRef,
-        snapshot => {
-            const data = snapshot.val() || {};
-            // Flatten or map the push keys into an array of clean message objects
-            const messages = Object.values(data).map(item => ({
-                sender: item.sender || 'BOT',
-                text: item.message || item.text || '',
-                timestamp: item.timestamp || ''
-            }));
-            callback(messages);
-        },
-        error => console.error("Firebase message listener error:", error)
-    );
+// Send a connection test from the website
+function sendConnectionTest() {
+  return sendBotMessage(
+    "WEBSITE",
+    "CONNECTION_TEST"
+  );
 }
 
+// Listen for messages from both bots
+function listenForBotMessages(callback) {
+  return onValue(
+    botMessagesRef,
+    (snapshot) => {
+      const data = snapshot.val() || {};
+
+      const messages = Object.entries(data)
+        .map(([id, item]) => {
+          if (typeof item === "string") {
+            return {
+              id,
+              sender: "BOT",
+              text: item,
+              timestamp: ""
+            };
+          }
+
+          if (!item || typeof item !== "object") {
+            return null;
+          }
+
+          const text =
+            typeof item.message === "string"
+              ? item.message
+              : typeof item.text === "string"
+                ? item.text
+                : "";
+
+          return {
+            id,
+            sender: item.sender || "BOT",
+            text,
+            timestamp: item.timestamp || ""
+          };
+        })
+        .filter((item) => item && item.text.trim())
+        .sort((a, b) =>
+          String(a.timestamp).localeCompare(
+            String(b.timestamp)
+          )
+        );
+
+      callback(messages);
+    },
+    (error) => {
+      console.error(
+        "Firebase message listener error:",
+        error
+      );
+    }
+  );
+}
 
 export {
   app,
@@ -76,6 +143,8 @@ export {
   onValue,
   signInWebsite,
   sendBotMessage,
+  sendConnectionTest,
   listenForBotMessages,
-  signOut
+  signOut,
+  signOutWebsite
 };
